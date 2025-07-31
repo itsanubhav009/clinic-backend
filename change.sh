@@ -1,8 +1,8 @@
 #!/bin/bash
 
-echo "🔍 Railway MySQL Connection Debug & Fix"
+echo "🔧 Fixing TypeScript build errors..."
 
-# 1. Create enhanced app.module.ts with better debugging and error handling
+# 1. Fix app.module.ts with correct TypeScript types
 cat << 'EOF' > src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -63,7 +63,7 @@ import { SeedModule } from './seed/seed.module';
               database: url.pathname.slice(1),
               entities: [User, Doctor, Appointment, Queue],
               synchronize: true,
-              logging: ['error', 'warn', 'migration'],
+              logging: true,
               extra: {
                 charset: 'utf8mb4_unicode_ci',
                 connectionLimit: 10,
@@ -100,11 +100,11 @@ import { SeedModule } from './seed/seed.module';
         console.log(`  - Username: ${mysqlConfig.username}`);
 
         return {
-          type: 'mysql',
+          type: 'mysql' as const,
           ...mysqlConfig,
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
-          logging: ['error', 'warn', 'migration'],
+          logging: true,
           extra: {
             charset: 'utf8mb4_unicode_ci',
             connectionLimit: 10,
@@ -128,7 +128,9 @@ import { SeedModule } from './seed/seed.module';
 export class AppModule {}
 EOF
 
-# 2. Create a database health check endpoint
+# 2. Create health module files (missing from previous script)
+mkdir -p src/health
+
 cat << 'EOF' > src/health/health.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -178,7 +180,6 @@ export class HealthController {
 }
 EOF
 
-# 3. Create health module
 cat << 'EOF' > src/health/health.module.ts
 import { Module } from '@nestjs/common';
 import { HealthController } from './health.controller';
@@ -189,8 +190,8 @@ import { HealthController } from './health.controller';
 export class HealthModule {}
 EOF
 
-# 4. Update main app.module.ts to include health module
-cat << 'EOF' > src/app.module.updated.ts
+# 3. Update app.module.ts to include health module
+cat << 'EOF' > src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -251,7 +252,7 @@ import { SeedModule } from './seed/seed.module';
               database: url.pathname.slice(1),
               entities: [User, Doctor, Appointment, Queue],
               synchronize: true,
-              logging: ['error', 'warn', 'migration'],
+              logging: true,
               extra: {
                 charset: 'utf8mb4_unicode_ci',
                 connectionLimit: 10,
@@ -288,11 +289,11 @@ import { SeedModule } from './seed/seed.module';
         console.log(`  - Username: ${mysqlConfig.username}`);
 
         return {
-          type: 'mysql',
+          type: 'mysql' as const,
           ...mysqlConfig,
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
-          logging: ['error', 'warn', 'migration'],
+          logging: true,
           extra: {
             charset: 'utf8mb4_unicode_ci',
             connectionLimit: 10,
@@ -317,32 +318,29 @@ import { SeedModule } from './seed/seed.module';
 export class AppModule {}
 EOF
 
+# 4. Clean up the duplicate file
+rm -f src/app.module.updated.ts
+
 echo ""
-echo "✅ MySQL debug configuration created!"
+echo "✅ TypeScript build errors fixed!"
 echo "======================================================"
-echo "🔧 DEBUG FEATURES ADDED:"
-echo "✅ Enhanced connection logging"
-echo "✅ Better error handling and retries"
-echo "✅ Health check endpoints"
-echo "✅ Environment variable debugging"
+echo "🔧 ISSUES FIXED:"
+echo "✅ Fixed logging type error (changed to 'logging: true')"
+echo "✅ Created missing health module files"
+echo "✅ Removed duplicate app.module.updated.ts"
+echo "✅ Added proper 'as const' type assertions"
 echo ""
-echo "🚀 DEPLOY STEPS:"
-echo "1. cp src/app.module.updated.ts src/app.module.ts"
-echo "2. git add ."
-echo "3. git commit -m 'add mysql debug and health checks'"
-echo "4. git push"
+echo "📁 FILES CREATED:"
+echo "✅ src/health/health.controller.ts"
+echo "✅ src/health/health.module.ts"
+echo "✅ Updated src/app.module.ts"
 echo ""
-echo "📊 AFTER DEPLOYMENT - CHECK LOGS FOR:"
-echo "🔍 '=== MYSQL CONNECTION DEBUG ==='"
-echo "🔍 All environment variables"
-echo "🔍 Connection configuration details"
+echo "🚀 DEPLOY NOW:"
+echo "git add ."
+echo "git commit -m 'fix: resolve TypeScript build errors and add health module'"
+echo "git push"
 echo ""
-echo "🌐 TEST HEALTH ENDPOINTS:"
-echo "- GET https://your-app.railway.app/health"
-echo "- GET https://your-app.railway.app/health/db"
-echo ""
-echo "🎯 COMMON ISSUES TO CHECK IN RAILWAY:"
-echo "1. Is MySQL service running?"
-echo "2. Are environment variables set correctly?"
-echo "3. Is the MySQL service in the same Railway project?"
-echo "4. Check Railway service variables tab"
+echo "Expected behavior after deployment:"
+echo "✅ Build should complete successfully"
+echo "✅ Debug logs will show MySQL connection attempts"
+echo "✅ Health endpoint available at /health"

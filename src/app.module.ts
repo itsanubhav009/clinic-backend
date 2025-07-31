@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { DoctorsModule } from './doctors/doctors.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { QueueModule } from './queue/queue.module';
+import { HealthModule } from './health/health.module';
 import { User } from './users/entities/user.entity';
 import { Doctor } from './doctors/entities/doctor.entity';
 import { Appointment } from './appointments/entities/appointment.entity';
@@ -57,7 +58,7 @@ import { SeedModule } from './seed/seed.module';
               database: url.pathname.slice(1),
               entities: [User, Doctor, Appointment, Queue],
               synchronize: true,
-              logging: ['error', 'warn', 'migration'],
+              logging: true,
               extra: {
                 charset: 'utf8mb4_unicode_ci',
                 connectionLimit: 10,
@@ -94,11 +95,11 @@ import { SeedModule } from './seed/seed.module';
         console.log(`  - Username: ${mysqlConfig.username}`);
 
         return {
-          type: 'mysql',
+          type: 'mysql' as const,
           ...mysqlConfig,
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
-          logging: ['error', 'warn', 'migration'],
+          logging: true,
           extra: {
             charset: 'utf8mb4_unicode_ci',
             connectionLimit: 10,
@@ -117,6 +118,7 @@ import { SeedModule } from './seed/seed.module';
     AppointmentsModule, 
     QueueModule, 
     SeedModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
