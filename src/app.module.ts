@@ -19,18 +19,20 @@ import { SeedModule } from './seed/seed.module';
       imports: [ConfigModule], 
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        console.log('🔍 MySQL Connection Variables:');
+        console.log('🔍 MySQL Connection Variables Debug:');
         console.log('MYSQL_URL:', configService.get('MYSQL_URL') ? 'Present' : 'Missing');
-        console.log('MYSQLHOST:', configService.get('MYSQLHOST'));
-        console.log('MYSQLPORT:', configService.get('MYSQLPORT'));
-        console.log('MYSQLDATABASE:', configService.get('MYSQLDATABASE'));
-        console.log('MYSQLUSER:', configService.get('MYSQLUSER'));
+        console.log('MYSQLHOST:', configService.get('MYSQLHOST') || 'Missing');
+        console.log('MYSQLPORT:', configService.get('MYSQLPORT') || 'Missing');
+        console.log('MYSQLDATABASE:', configService.get('MYSQLDATABASE') || 'Missing');
+        console.log('MYSQLUSER:', configService.get('MYSQLUSER') || 'Missing');
         console.log('MYSQLPASSWORD:', configService.get('MYSQLPASSWORD') ? 'Present' : 'Missing');
+        console.log('DB_HOST (fallback):', configService.get('DB_HOST') || 'Missing');
 
         // First try: Use MYSQL_URL if available (Railway's preferred method)
         const mysqlUrl = configService.get<string>('MYSQL_URL');
         if (mysqlUrl) {
-          console.log('✅ Using MYSQL_URL connection');
+          console.log('✅ Using MYSQL_URL connection string');
+          console.log('Connection URL format:', mysqlUrl.replace(/:[^:]*@/, ':****@')); // Hide password
           return {
             type: 'mysql',
             url: mysqlUrl,
@@ -40,6 +42,8 @@ import { SeedModule } from './seed/seed.module';
             connectTimeout: 60000,
             acquireTimeout: 60000,
             timeout: 60000,
+            retryAttempts: 3,
+            retryDelay: 3000,
           };
         }
 
@@ -52,7 +56,7 @@ import { SeedModule } from './seed/seed.module';
 
         if (host && username && password && database) {
           console.log('✅ Using individual MySQL variables');
-          console.log(`🔗 Connection: { host: '${host}', port: ${port}, database: '${database}', user: '${username}' }`);
+          console.log(`🔗 Connecting to: ${username}@${host}:${port}/${database}`);
           return {
             type: 'mysql',
             host,
@@ -66,24 +70,35 @@ import { SeedModule } from './seed/seed.module';
             connectTimeout: 60000,
             acquireTimeout: 60000,
             timeout: 60000,
+            retryAttempts: 3,
+            retryDelay: 3000,
           };
         }
 
         // Fallback for local development
         console.log('⚠️ Using fallback local MySQL connection');
+        const fallbackHost = configService.get<string>('DB_HOST') || 'localhost';
+        const fallbackPort = parseInt(configService.get('DB_PORT')) || 3306;
+        const fallbackUser = configService.get<string>('DB_USERNAME') || 'root';
+        const fallbackDb = configService.get<string>('DB_DATABASE') || 'clinic_db';
+        
+        console.log(`🔗 Fallback connecting to: ${fallbackUser}@${fallbackHost}:${fallbackPort}/${fallbackDb}`);
+        
         return {
           type: 'mysql',
-          host: configService.get<string>('DB_HOST') || 'localhost',
-          port: parseInt(configService.get('DB_PORT')) || 3306,
-          username: configService.get<string>('DB_USERNAME') || 'root',
+          host: fallbackHost,
+          port: fallbackPort,
+          username: fallbackUser,
           password: configService.get<string>('DB_PASSWORD') || 'password',
-          database: configService.get<string>('DB_DATABASE') || 'clinic_db',
+          database: fallbackDb,
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
           ssl: false,
           connectTimeout: 60000,
           acquireTimeout: 60000,
           timeout: 60000,
+          retryAttempts: 3,
+          retryDelay: 3000,
         };
       },
     }),
