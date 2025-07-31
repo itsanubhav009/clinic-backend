@@ -16,45 +16,86 @@ import { SeedModule } from './seed/seed.module';
   imports: [
     ConfigModule.forRoot({ 
       isGlobal: true, 
-      envFilePath: '.env',
-      // Load environment variables from process.env (Railway variables)
-      load: [() => ({
-        DB_HOST: process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1',
-        DB_PORT: parseInt(process.env.MYSQLPORT || process.env.DB_PORT || '3306'),
-        DB_USERNAME: process.env.MYSQLUSER || process.env.DB_USERNAME || 'root',
-        DB_PASSWORD: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || 'password',
-        DB_DATABASE: process.env.MYSQLDATABASE || process.env.DB_DATABASE || 'clinic_db',
-        JWT_SECRET: process.env.JWT_SECRET || 'a-very-strong-and-secret-key-for-jwt',
-      })]
+      envFilePath: '.env'
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule], 
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        console.log('🔗 Connecting to MySQL with:', {
-          host: configService.get<string>('DB_HOST'),
-          port: configService.get<number>('DB_PORT'),
-          username: configService.get<string>('DB_USERNAME'),
-          database: configService.get<string>('DB_DATABASE'),
-        });
+        console.log('🔍 Railway MySQL Variables:');
+        console.log('MYSQL_URL:', process.env.MYSQL_URL ? 'Available' : 'Missing');
+        console.log('MYSQLHOST:', process.env.MYSQLHOST);
+        console.log('MYSQLPORT:', process.env.MYSQLPORT);
+        console.log('MYSQLDATABASE:', process.env.MYSQLDATABASE);
+        console.log('MYSQLPASSWORD:', process.env.MYSQLPASSWORD ? 'Available' : 'Missing');
+
+        // Method 1: Try to use MYSQL_URL directly
+        if (process.env.MYSQL_URL) {
+          console.log('✅ Using MYSQL_URL for connection');
+          try {
+            const url = new URL(process.env.MYSQL_URL);
+            const config = {
+              type: 'mysql' as const,
+              host: url.hostname,
+              port: parseInt(url.port) || 3306,
+              username: url.username,
+              password: url.password,
+              database: url.pathname.slice(1), // Remove leading /
+              entities: [User, Doctor, Appointment, Queue],
+              synchronize: true,
+              logging: false,
+              extra: {
+                charset: 'utf8mb4_unicode_ci',
+              },
+              connectTimeout: 30000,
+              acquireTimeout: 30000,
+              timeout: 30000,
+            };
+            
+            console.log('🔗 Parsed MYSQL_URL connection:');
+            console.log(`  Host: ${config.host}`);
+            console.log(`  Port: ${config.port}`);
+            console.log(`  Username: ${config.username}`);
+            console.log(`  Database: ${config.database}`);
+            console.log(`  Password: ${config.password ? '[SET]' : '[NOT SET]'}`);
+            
+            return config;
+          } catch (error) {
+            console.log('❌ Failed to parse MYSQL_URL:', error);
+          }
+        }
+
+        // Method 2: Fallback to individual variables
+        console.log('⚠️  Falling back to individual MySQL variables');
+        const host = process.env.MYSQLHOST || 'mysql.railway.internal';
+        const port = parseInt(process.env.MYSQLPORT || '3306');
+        const username = process.env.MYSQLUSER || 'root';
+        const password = process.env.MYSQLPASSWORD || '';
+        const database = process.env.MYSQLDATABASE || 'railway';
+
+        console.log('🔗 Individual variables connection:');
+        console.log(`  Host: ${host}`);
+        console.log(`  Port: ${port}`);
+        console.log(`  Username: ${username}`);
+        console.log(`  Database: ${database}`);
+        console.log(`  Password: ${password ? '[SET]' : '[NOT SET]'}`);
         
         return {
           type: 'mysql',
-          host: configService.get<string>('DB_HOST'),
-          port: configService.get<number>('DB_PORT'),
-          username: configService.get<string>('DB_USERNAME'),
-          password: configService.get<string>('DB_PASSWORD'),
-          database: configService.get<string>('DB_DATABASE'),
+          host,
+          port,
+          username,
+          password,
+          database,
           entities: [User, Doctor, Appointment, Queue],
-          synchronize: true, // Set to false in production
-          logging: process.env.NODE_ENV !== 'production',
-          // Additional MySQL connection options for Railway
+          synchronize: true,
+          logging: false,
           extra: {
             charset: 'utf8mb4_unicode_ci',
           },
-          // Retry connection options
-          retryAttempts: 3,
-          retryDelay: 3000,
+          connectTimeout: 30000,
+          acquireTimeout: 30000,
+          timeout: 30000,
         };
       },
     }),
