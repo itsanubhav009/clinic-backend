@@ -1,42 +1,28 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
-  console.log('🚀 === RAILWAY STARTUP DEBUG ===');
-  console.log('Node.js version:', process.version);
-  console.log('Environment:', process.env.NODE_ENV);
-  console.log('Railway environment:', process.env.RAILWAY_ENVIRONMENT);
-  console.log('');
-  
-  console.log('🔍 === MYSQL ENVIRONMENT VARIABLES ===');
-  const mysqlEnvVars = [
-    'MYSQL_URL',
-    'MYSQLHOST', 'MYSQLPORT', 'MYSQLUSER', 'MYSQLPASSWORD', 'MYSQLDATABASE',
-    'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'
-  ];
-  
-  mysqlEnvVars.forEach(key => {
-    const value = process.env[key];
-    if (value) {
-      console.log(`✅ ${key}:`, key.includes('PASSWORD') ? '[HIDDEN]' : value);
-    } else {
-      console.log(`❌ ${key}: MISSING`);
-    }
-  });
-  
-  console.log('');
-  console.log('📊 Total environment variables:', Object.keys(process.env).length);
-  console.log('');
-
   const app = await NestFactory.create(AppModule);
   
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',') 
+    : ['http://localhost:3001'];
   
-  console.log(`🌐 Application is running on port ${port}`);
+  app.enableCors({ 
+    origin: allowedOrigins, 
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', 
+    credentials: true 
+  });
+  
+  app.useGlobalPipes(new ValidationPipe({ 
+    whitelist: true, 
+    forbidNonWhitelisted: true, 
+    transform: true 
+  }));
+  
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 Backend is running on: ${await app.getUrl()}`);
 }
-
-bootstrap().catch(error => {
-  console.error('💥 Bootstrap failed:', error);
-  process.exit(1);
-});
+bootstrap();
