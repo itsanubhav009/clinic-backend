@@ -36,11 +36,11 @@ import { SeedModule } from './seed/seed.module';
         
         const config = {
           type: 'mysql' as const,
-          host: configService.get<string>('MYSQL_HOST'),
-          port: parseInt(configService.get('MYSQL_PORT') || '3306'),
-          username: configService.get<string>('MYSQL_USER'),
-          password: configService.get<string>('MYSQL_PASSWORD'),
-          database: configService.get<string>('MYSQL_DATABASE'),
+          host: configService.get<string>('MYSQLHOST'),
+          port: parseInt(configService.get('MYSQLPORT') || '3306' ,10),
+          username: configService.get<string>('MYSQLUSER'),
+          password: configService.get<string>('MYSQLPASSWORD'),
+          database: configService.get<string>('MYSQLDATABASE'),
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
           ssl: false,
