@@ -23,7 +23,7 @@ import { SeedModule } from './seed/seed.module';
         host: configService.get<string>('MYSQLHOST') || configService.get<string>('DB_HOST'),
         port: parseInt(configService.get('MYSQLPORT') || configService.get('DB_PORT')), 
         username: configService.get<string>('MYSQLUSER') || configService.get<string>('DB_USERNAME'),
-        password: configService.get<string>('MYSQLPASSWORD') || configService.get<string>('DB_PASSWORD'), 
+        password: configService.get<string>('MYSQL_ROOT_PASSWORD') || configService.get<string>('DB_PASSWORD'), 
         database: configService.get<string>('MYSQL_DATABASE') || configService.get<string>('DB_DATABASE'),
         entities: [User, Doctor, Appointment, Queue], 
         synchronize: true,
