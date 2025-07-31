@@ -14,83 +14,71 @@ import { SeedModule } from './seed/seed.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ 
-      isGlobal: true, 
-      envFilePath: '.env'
-    }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule], 
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         console.log('🔍 MySQL Connection Variables:');
-        console.log('MYSQL_URL:', process.env.MYSQL_URL ? 'Available' : 'Missing');
-        console.log('MYSQLHOST:', process.env.MYSQLHOST);
-        console.log('MYSQLPORT:', process.env.MYSQLPORT);
-        console.log('MYSQLDATABASE:', process.env.MYSQLDATABASE);
+        console.log('MYSQL_URL:', configService.get('MYSQL_URL') ? 'Present' : 'Missing');
+        console.log('MYSQLHOST:', configService.get('MYSQLHOST'));
+        console.log('MYSQLPORT:', configService.get('MYSQLPORT'));
+        console.log('MYSQLDATABASE:', configService.get('MYSQLDATABASE'));
+        console.log('MYSQLUSER:', configService.get('MYSQLUSER'));
+        console.log('MYSQLPASSWORD:', configService.get('MYSQLPASSWORD') ? 'Present' : 'Missing');
 
-        // Use Railway's MYSQL_URL if available
-        if (process.env.MYSQL_URL) {
-          console.log('✅ Using MYSQL_URL for connection');
-          try {
-            const url = new URL(process.env.MYSQL_URL);
-            const config = {
-              type: 'mysql' as const,
-              host: url.hostname,
-              port: parseInt(url.port) || 3306,
-              username: url.username,
-              password: url.password,
-              database: url.pathname.slice(1), // Remove leading /
-              entities: [User, Doctor, Appointment, Queue],
-              synchronize: true,
-              logging: false,
-              extra: {
-                charset: 'utf8mb4_unicode_ci',
-              },
-            };
-            
-            console.log('🔗 MySQL Connection:');
-            console.log(`  Host: ${config.host}`);
-            console.log(`  Port: ${config.port}`);
-            console.log(`  Database: ${config.database}`);
-            
-            return config;
-          } catch (error) {
-            console.log('❌ Failed to parse MYSQL_URL:', error);
-          }
+        // First try: Use MYSQL_URL if available (Railway's preferred method)
+        const mysqlUrl = configService.get<string>('MYSQL_URL');
+        if (mysqlUrl) {
+          console.log('✅ Using MYSQL_URL connection');
+          return {
+            type: 'mysql',
+            url: mysqlUrl,
+            entities: [User, Doctor, Appointment, Queue],
+            synchronize: true,
+            ssl: false,
+          };
         }
 
-        // Fallback to individual variables
-        console.log('⚠️  Using individual MySQL variables');
-        const host = process.env.MYSQLHOST || 'mysql.railway.internal';
-        const port = parseInt(process.env.MYSQLPORT || '3306');
-        const username = process.env.MYSQLUSER || 'root';
-        const password = process.env.MYSQLPASSWORD || '';
-        const database = process.env.MYSQLDATABASE || 'railway';
+        // Second try: Use individual Railway variables
+        const host = configService.get<string>('MYSQLHOST');
+        const port = parseInt(configService.get('MYSQLPORT')) || 3306;
+        const username = configService.get<string>('MYSQLUSER');
+        const password = configService.get<string>('MYSQLPASSWORD');
+        const database = configService.get<string>('MYSQLDATABASE');
 
-        console.log('🔗 Fallback connection:', { host, port, database });
-        
+        if (host && username && password && database) {
+          console.log('✅ Using individual MySQL variables');
+          console.log(`🔗 Connection: { host: '${host}', port: ${port}, database: '${database}', user: '${username}' }`);
+          return {
+            type: 'mysql',
+            host,
+            port,
+            username,
+            password,
+            database,
+            entities: [User, Doctor, Appointment, Queue],
+            synchronize: true,
+            ssl: false,
+          };
+        }
+
+        // Fallback for local development
+        console.log('⚠️ Using fallback local MySQL connection');
         return {
           type: 'mysql',
-          host,
-          port,
-          username,
-          password,
-          database,
+          host: configService.get<string>('DB_HOST') || 'localhost',
+          port: parseInt(configService.get('DB_PORT')) || 3306,
+          username: configService.get<string>('DB_USERNAME') || 'root',
+          password: configService.get<string>('DB_PASSWORD') || 'password',
+          database: configService.get<string>('DB_DATABASE') || 'clinic_db',
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
-          logging: false,
-          extra: {
-            charset: 'utf8mb4_unicode_ci',
-          },
+          ssl: false,
         };
       },
     }),
-    AuthModule, 
-    UsersModule, 
-    DoctorsModule, 
-    AppointmentsModule, 
-    QueueModule, 
-    SeedModule,
+    AuthModule, UsersModule, DoctorsModule, AppointmentsModule, QueueModule, SeedModule,
   ],
 })
 export class AppModule {}
