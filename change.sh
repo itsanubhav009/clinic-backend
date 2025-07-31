@@ -1,202 +1,176 @@
 #!/bin/bash
 
-echo "🔧 Manual Railway MySQL Fix (No CLI Required)"
-echo "=============================================="
+echo "🔍 Database Connection Troubleshooting for NestJS + MySQL"
+echo "========================================================"
 
-# Step 1: Apply the Railway MySQL connection fix to app.module.ts
-echo "1. Updating app.module.ts with Railway MySQL connection logic..."
-
-cat << 'EOF' > src/app.module.ts
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { DoctorsModule } from './doctors/doctors.module';
-import { AppointmentsModule } from './appointments/appointments.module';
-import { QueueModule } from './queue/queue.module';
-import { User } from './users/entities/user.entity';
-import { Doctor } from './doctors/entities/doctor.entity';
-import { Appointment } from './appointments/entities/appointment.entity';
-import { Queue } from './queue/entities/queue.entity';
-import { SeedModule } from './seed/seed.module';
-
-@Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule], 
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        console.log('🔍 MySQL Connection Variables Debug:');
-        console.log('MYSQL_URL:', configService.get('MYSQL_URL') ? 'Present' : 'Missing');
-        console.log('MYSQLHOST:', configService.get('MYSQLHOST') || 'Missing');
-        console.log('MYSQLPORT:', configService.get('MYSQLPORT') || 'Missing');
-        console.log('MYSQLDATABASE:', configService.get('MYSQLDATABASE') || 'Missing');
-        console.log('MYSQLUSER:', configService.get('MYSQLUSER') || 'Missing');
-        console.log('MYSQLPASSWORD:', configService.get('MYSQLPASSWORD') ? 'Present' : 'Missing');
-        console.log('DB_HOST (fallback):', configService.get('DB_HOST') || 'Missing');
-
-        // First try: Use MYSQL_URL if available (Railway's preferred method)
-        const mysqlUrl = configService.get<string>('MYSQL_URL');
-        if (mysqlUrl) {
-          console.log('✅ Using MYSQL_URL connection string');
-          console.log('Connection URL format:', mysqlUrl.replace(/:[^:]*@/, ':****@')); // Hide password
-          return {
-            type: 'mysql',
-            url: mysqlUrl,
-            entities: [User, Doctor, Appointment, Queue],
-            synchronize: true,
-            ssl: false,
-            connectTimeout: 60000,
-            acquireTimeout: 60000,
-            timeout: 60000,
-            retryAttempts: 3,
-            retryDelay: 3000,
-          };
-        }
-
-        // Second try: Use individual Railway variables
-        const host = configService.get<string>('MYSQLHOST');
-        const port = parseInt(configService.get('MYSQLPORT')) || 3306;
-        const username = configService.get<string>('MYSQLUSER');
-        const password = configService.get<string>('MYSQLPASSWORD');
-        const database = configService.get<string>('MYSQLDATABASE');
-
-        if (host && username && password && database) {
-          console.log('✅ Using individual MySQL variables');
-          console.log(`🔗 Connecting to: ${username}@${host}:${port}/${database}`);
-          return {
-            type: 'mysql',
-            host,
-            port,
-            username,
-            password,
-            database,
-            entities: [User, Doctor, Appointment, Queue],
-            synchronize: true,
-            ssl: false,
-            connectTimeout: 60000,
-            acquireTimeout: 60000,
-            timeout: 60000,
-            retryAttempts: 3,
-            retryDelay: 3000,
-          };
-        }
-
-        // Fallback for local development
-        console.log('⚠️ Using fallback local MySQL connection');
-        const fallbackHost = configService.get<string>('DB_HOST') || 'localhost';
-        const fallbackPort = parseInt(configService.get('DB_PORT')) || 3306;
-        const fallbackUser = configService.get<string>('DB_USERNAME') || 'root';
-        const fallbackDb = configService.get<string>('DB_DATABASE') || 'clinic_db';
-        
-        console.log(`🔗 Fallback connecting to: ${fallbackUser}@${fallbackHost}:${fallbackPort}/${fallbackDb}`);
-        
-        return {
-          type: 'mysql',
-          host: fallbackHost,
-          port: fallbackPort,
-          username: fallbackUser,
-          password: configService.get<string>('DB_PASSWORD') || 'password',
-          database: fallbackDb,
-          entities: [User, Doctor, Appointment, Queue],
-          synchronize: true,
-          ssl: false,
-          connectTimeout: 60000,
-          acquireTimeout: 60000,
-          timeout: 60000,
-          retryAttempts: 3,
-          retryDelay: 3000,
-        };
-      },
-    }),
-    AuthModule, UsersModule, DoctorsModule, AppointmentsModule, QueueModule, SeedModule,
-  ],
-})
-export class AppModule {}
-EOF
-
-echo "✅ Updated app.module.ts with enhanced Railway MySQL connection logic"
-
-# Step 2: Create a template .env file for Railway variables
+# Check if .env file exists and show its contents (without sensitive data)
 echo ""
-echo "2. Creating .env template for Railway variables..."
-
-cat << 'EOF' > .env.template
-# ==============================================
-# Railway MySQL Configuration
-# ==============================================
-# Get these values from your Railway dashboard:
-# 1. Go to your Railway project
-# 2. Click on your MySQL service
-# 3. Go to "Variables" tab
-# 4. Copy the values below:
-
-MYSQL_URL=mysql://root:password@containers-us-west-xxx.railway.app:6543/railway
-MYSQLHOST=containers-us-west-xxx.railway.app
-MYSQLPORT=6543
-MYSQLUSER=root
-MYSQLPASSWORD=your-mysql-password
-MYSQLDATABASE=railway
-
-# ==============================================
-# Application Configuration
-# ==============================================
-JWT_SECRET=a-very-strong-and-secret-key-for-jwt
-
-# ==============================================
-# Local Development Fallback (for testing)
-# ==============================================
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USERNAME=clinic_admin
-DB_PASSWORD=password
-DB_DATABASE=clinic_db
-EOF
-
-echo "✅ Created .env.template with Railway variable placeholders"
-
-# Step 3: Check current .env
-echo ""
-echo "3. Current .env file status:"
+echo "1. Checking .env file configuration:"
+echo "===================================="
 if [ -f ".env" ]; then
     echo "✅ .env file exists"
-    echo "Current contents:"
-    cat .env
+    echo ""
+    echo "Current .env contents (passwords hidden):"
+    while IFS= read -r line; do
+        if [[ $line =~ ^[[:space:]]*# ]] || [[ -z "$line" ]]; then
+            echo "$line"
+        elif [[ $line =~ PASSWORD|MYSQL_URL ]]; then
+            key=$(echo "$line" | cut -d'=' -f1)
+            echo "$key=***HIDDEN***"
+        else
+            echo "$line"
+        fi
+    done < .env
 else
-    echo "❌ No .env file found"
-    echo "Creating basic .env for local testing..."
-    cp .env.template .env
+    echo "❌ No .env file found!"
+    echo "Creating a template .env file..."
+    cat > .env << 'EOF'
+# Local MySQL Configuration (for testing)
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=password
+DB_DATABASE=clinic_db
+
+# Railway MySQL Configuration (get from Railway dashboard)
+# MYSQL_URL=mysql://root:password@containers-us-west-xxx.railway.app:6543/railway
+# MYSQLHOST=containers-us-west-xxx.railway.app
+# MYSQLPORT=6543
+# MYSQLUSER=root
+# MYSQLPASSWORD=your-railway-password
+# MYSQLDATABASE=railway
+
+# JWT Secret
+JWT_SECRET=a-very-strong-and-secret-key-for-jwt
+EOF
+    echo "✅ Created template .env file"
 fi
 
 echo ""
-echo "=========================================="
-echo "🎯 NEXT STEPS TO FIX YOUR CONNECTION:"
-echo "=========================================="
+echo "2. Testing local MySQL connection:"
+echo "=================================="
+
+# Check if MySQL is running locally
+if command -v mysql &> /dev/null; then
+    echo "✅ MySQL client is installed"
+    
+    # Try to connect to local MySQL
+    echo "Testing local MySQL connection..."
+    if mysql -h127.0.0.1 -P3306 -uroot -p"password" -e "SELECT 1;" 2>/dev/null; then
+        echo "✅ Local MySQL connection successful"
+        
+        # Check if database exists
+        if mysql -h127.0.0.1 -P3306 -uroot -p"password" -e "USE clinic_db; SELECT 1;" 2>/dev/null; then
+            echo "✅ Database 'clinic_db' exists"
+        else
+            echo "⚠️  Database 'clinic_db' does not exist"
+            echo "Creating database..."
+            mysql -h127.0.0.1 -P3306 -uroot -p"password" -e "CREATE DATABASE IF NOT EXISTS clinic_db;" 2>/dev/null && echo "✅ Database created" || echo "❌ Failed to create database"
+        fi
+    else
+        echo "❌ Cannot connect to local MySQL"
+        echo "   - Check if MySQL server is running: brew services start mysql (macOS) or sudo service mysql start (Linux)"
+        echo "   - Verify root password"
+        echo "   - Try: mysql -uroot -p"
+    fi
+else
+    echo "❌ MySQL client not installed"
+    echo "   Install with: brew install mysql (macOS) or sudo apt install mysql-client (Linux)"
+fi
+
 echo ""
-echo "OPTION 1: Get Railway Variables Manually"
+echo "3. Network connectivity test:"
+echo "============================="
+
+# Test if we can reach common ports
+echo "Testing port 3306 (MySQL default)..."
+if timeout 3 bash -c "</dev/tcp/127.0.0.1/3306" 2>/dev/null; then
+    echo "✅ Port 3306 is open locally"
+else
+    echo "❌ Port 3306 is not accessible locally"
+fi
+
+echo ""
+echo "4. Docker MySQL option:"
+echo "======================="
+echo "If you don't have MySQL installed locally, you can use Docker:"
+echo ""
+echo "# Pull and run MySQL in Docker:"
+echo "docker run --name clinic-mysql -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=clinic_db -p 3306:3306 -d mysql:8.0"
+echo ""
+echo "# Connect to verify:"
+echo "docker exec -it clinic-mysql mysql -uroot -p"
+
+echo ""
+echo "5. Railway MySQL setup:"
+echo "======================="
+echo "If you want to use Railway MySQL:"
+echo ""
+echo "Option A - Manual setup:"
 echo "1. Go to https://railway.app/dashboard"
-echo "2. Open your project"
-echo "3. Click on your MySQL service"
-echo "4. Go to 'Variables' tab"
-echo "5. Copy the MYSQL_* variables"
-echo "6. Update your .env file with those values"
+echo "2. Create new project or open existing"
+echo "3. Add MySQL service"
+echo "4. Go to Variables tab and copy:"
+echo "   - MYSQL_URL"
+echo "   - MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE"
+echo "5. Add these to your .env file"
 echo ""
-echo "OPTION 2: Install Railway CLI (Recommended)"
-echo "1. npm install -g @railway/cli"
-echo "2. railway login"
-echo "3. railway link"
-echo "4. railway variables > railway-vars.txt"
-echo "5. Copy MYSQL_* variables to .env file"
+echo "Option B - Railway CLI:"
+echo "npm install -g @railway/cli"
+echo "railway login"
+echo "railway link"
+echo "railway variables"
+
 echo ""
-echo "OPTION 3: Test Locally First"
-echo "1. Install MySQL locally"
-echo "2. Create database 'clinic_db'"
-echo "3. Update .env with local credentials"
-echo "4. Test with: npm run start:dev"
+echo "6. Quick fixes to try:"
+echo "====================="
 echo ""
-echo "=========================================="
-echo "After updating .env, run: npm run start:dev"
-echo "You should see debug output showing which connection method is being used"
-echo "=========================================="
+echo "Fix 1 - Update app.module.ts to use the Railway-compatible version:"
+echo "     - Use the first script (paste.txt) to update your app.module.ts"
+echo ""
+echo "Fix 2 - Test with local MySQL first:"
+echo "     - Install MySQL locally or use Docker"
+echo "     - Update .env with local credentials"
+echo "     - Run: npm run start:dev"
+echo ""
+echo "Fix 3 - Check your current app.module.ts TypeORM config:"
+echo "     - Make sure it's reading from .env correctly"
+echo "     - Add console.log to debug connection params"
+
+echo ""
+echo "7. Debug your current connection:"
+echo "================================"
+echo "Add this debug code to your app.module.ts TypeORM factory:"
+echo ""
+cat << 'EOF'
+useFactory: (configService: ConfigService) => {
+  console.log('🔍 Debug - Database Connection Parameters:');
+  console.log('DB_HOST:', configService.get('DB_HOST'));
+  console.log('DB_PORT:', configService.get('DB_PORT'));
+  console.log('DB_USERNAME:', configService.get('DB_USERNAME'));
+  console.log('DB_DATABASE:', configService.get('DB_DATABASE'));
+  console.log('DB_PASSWORD:', configService.get('DB_PASSWORD') ? 'SET' : 'NOT SET');
+  
+  return {
+    type: 'mysql',
+    host: configService.get<string>('DB_HOST'),
+    port: parseInt(configService.get('DB_PORT')),
+    username: configService.get<string>('DB_USERNAME'),
+    password: configService.get<string>('DB_PASSWORD'),
+    database: configService.get<string>('DB_DATABASE'),
+    entities: [User, Doctor, Appointment, Queue],
+    synchronize: true,
+  };
+},
+EOF
+
+echo ""
+echo "========================================================"
+echo "🎯 Most likely solution:"
+echo "1. Install MySQL locally: brew install mysql (macOS)"
+echo "2. Start MySQL service: brew services start mysql"
+echo "3. Set root password: mysql_secure_installation"
+echo "4. Create database: mysql -uroot -p -e 'CREATE DATABASE clinic_db;'"
+echo "5. Update .env with correct local credentials"
+echo "6. Run: npm run start:dev"
+echo "========================================================"
