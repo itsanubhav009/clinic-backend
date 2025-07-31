@@ -22,14 +22,13 @@ import { SeedModule } from './seed/seed.module';
       imports: [ConfigModule], 
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        console.log('🔍 Railway MySQL Variables:');
+        console.log('🔍 MySQL Connection Variables:');
         console.log('MYSQL_URL:', process.env.MYSQL_URL ? 'Available' : 'Missing');
         console.log('MYSQLHOST:', process.env.MYSQLHOST);
         console.log('MYSQLPORT:', process.env.MYSQLPORT);
         console.log('MYSQLDATABASE:', process.env.MYSQLDATABASE);
-        console.log('MYSQLPASSWORD:', process.env.MYSQLPASSWORD ? 'Available' : 'Missing');
 
-        // Method 1: Try to use MYSQL_URL directly
+        // Use Railway's MYSQL_URL if available
         if (process.env.MYSQL_URL) {
           console.log('✅ Using MYSQL_URL for connection');
           try {
@@ -47,17 +46,12 @@ import { SeedModule } from './seed/seed.module';
               extra: {
                 charset: 'utf8mb4_unicode_ci',
               },
-              connectTimeout: 30000,
-              acquireTimeout: 30000,
-              timeout: 30000,
             };
             
-            console.log('🔗 Parsed MYSQL_URL connection:');
+            console.log('🔗 MySQL Connection:');
             console.log(`  Host: ${config.host}`);
             console.log(`  Port: ${config.port}`);
-            console.log(`  Username: ${config.username}`);
             console.log(`  Database: ${config.database}`);
-            console.log(`  Password: ${config.password ? '[SET]' : '[NOT SET]'}`);
             
             return config;
           } catch (error) {
@@ -65,20 +59,15 @@ import { SeedModule } from './seed/seed.module';
           }
         }
 
-        // Method 2: Fallback to individual variables
-        console.log('⚠️  Falling back to individual MySQL variables');
+        // Fallback to individual variables
+        console.log('⚠️  Using individual MySQL variables');
         const host = process.env.MYSQLHOST || 'mysql.railway.internal';
         const port = parseInt(process.env.MYSQLPORT || '3306');
         const username = process.env.MYSQLUSER || 'root';
         const password = process.env.MYSQLPASSWORD || '';
         const database = process.env.MYSQLDATABASE || 'railway';
 
-        console.log('🔗 Individual variables connection:');
-        console.log(`  Host: ${host}`);
-        console.log(`  Port: ${port}`);
-        console.log(`  Username: ${username}`);
-        console.log(`  Database: ${database}`);
-        console.log(`  Password: ${password ? '[SET]' : '[NOT SET]'}`);
+        console.log('🔗 Fallback connection:', { host, port, database });
         
         return {
           type: 'mysql',
@@ -93,9 +82,6 @@ import { SeedModule } from './seed/seed.module';
           extra: {
             charset: 'utf8mb4_unicode_ci',
           },
-          connectTimeout: 30000,
-          acquireTimeout: 30000,
-          timeout: 30000,
         };
       },
     }),

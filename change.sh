@@ -1,21 +1,26 @@
 #!/bin/bash
 
 # ==============================================================================
-# Railway MYSQL_URL Fix - Use Railway's provided connection URL directly
+# Complete Railway Fix - MySQL + bcrypt + all issues
 # ==============================================================================
 
-echo "🔧 Using Railway's MYSQL_URL directly..."
+echo "🔧 Applying complete Railway fix..."
 
-# First, fix the bcrypt import issue
+# 1. Fix bcrypt import issue
 cat << 'EOF' > src/auth/auth.service.ts
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt'; // ← Fixed: use 'bcrypt' not 'bcryptjs'
+import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+
 @Injectable()
 export class AuthService {
-  constructor( private usersService: UsersService, private jwtService: JwtService ) {}
+  constructor( 
+    private usersService: UsersService, 
+    private jwtService: JwtService 
+  ) {}
+
   async signIn(email: string, pass: string): Promise<{ access_token: string }> {
     const user = await this.usersService.findOneByEmail(email);
     if (!user || !(await bcrypt.compare(pass, user.password))) {
@@ -24,6 +29,7 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email };
     return { access_token: this.jwtService.sign(payload) };
   }
+
   async register(createUserDto: CreateUserDto) {
     if (await this.usersService.findOneByEmail(createUserDto.email)) {
       throw new ConflictException('Email already registered');
@@ -36,7 +42,7 @@ export class AuthService {
 }
 EOF
 
-# Update app.module.ts to use MYSQL_URL
+# 2. Fix app.module.ts with MYSQL_URL support
 cat << 'EOF' > src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -62,14 +68,13 @@ import { SeedModule } from './seed/seed.module';
       imports: [ConfigModule], 
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        console.log('🔍 Railway MySQL Variables:');
+        console.log('🔍 MySQL Connection Variables:');
         console.log('MYSQL_URL:', process.env.MYSQL_URL ? 'Available' : 'Missing');
         console.log('MYSQLHOST:', process.env.MYSQLHOST);
         console.log('MYSQLPORT:', process.env.MYSQLPORT);
         console.log('MYSQLDATABASE:', process.env.MYSQLDATABASE);
-        console.log('MYSQLPASSWORD:', process.env.MYSQLPASSWORD ? 'Available' : 'Missing');
 
-        // Method 1: Try to use MYSQL_URL directly
+        // Use Railway's MYSQL_URL if available
         if (process.env.MYSQL_URL) {
           console.log('✅ Using MYSQL_URL for connection');
           try {
@@ -87,17 +92,12 @@ import { SeedModule } from './seed/seed.module';
               extra: {
                 charset: 'utf8mb4_unicode_ci',
               },
-              connectTimeout: 30000,
-              acquireTimeout: 30000,
-              timeout: 30000,
             };
             
-            console.log('🔗 Parsed MYSQL_URL connection:');
+            console.log('🔗 MySQL Connection:');
             console.log(`  Host: ${config.host}`);
             console.log(`  Port: ${config.port}`);
-            console.log(`  Username: ${config.username}`);
             console.log(`  Database: ${config.database}`);
-            console.log(`  Password: ${config.password ? '[SET]' : '[NOT SET]'}`);
             
             return config;
           } catch (error) {
@@ -105,20 +105,15 @@ import { SeedModule } from './seed/seed.module';
           }
         }
 
-        // Method 2: Fallback to individual variables
-        console.log('⚠️  Falling back to individual MySQL variables');
+        // Fallback to individual variables
+        console.log('⚠️  Using individual MySQL variables');
         const host = process.env.MYSQLHOST || 'mysql.railway.internal';
         const port = parseInt(process.env.MYSQLPORT || '3306');
         const username = process.env.MYSQLUSER || 'root';
         const password = process.env.MYSQLPASSWORD || '';
         const database = process.env.MYSQLDATABASE || 'railway';
 
-        console.log('🔗 Individual variables connection:');
-        console.log(`  Host: ${host}`);
-        console.log(`  Port: ${port}`);
-        console.log(`  Username: ${username}`);
-        console.log(`  Database: ${database}`);
-        console.log(`  Password: ${password ? '[SET]' : '[NOT SET]'}`);
+        console.log('🔗 Fallback connection:', { host, port, database });
         
         return {
           type: 'mysql',
@@ -133,9 +128,6 @@ import { SeedModule } from './seed/seed.module';
           extra: {
             charset: 'utf8mb4_unicode_ci',
           },
-          connectTimeout: 30000,
-          acquireTimeout: 30000,
-          timeout: 30000,
         };
       },
     }),
@@ -150,21 +142,70 @@ import { SeedModule } from './seed/seed.module';
 export class AppModule {}
 EOF
 
+# 3. Ensure correct package.json
+cat << 'EOF' > package.json
+{
+  "name": "clinic-backend",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/config": "^3.2.2",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/jwt": "^10.2.0",
+    "@nestjs/mapped-types": "^2.0.5",
+    "@nestjs/passport": "^10.0.3",
+    "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/typeorm": "^10.0.2",
+    "bcrypt": "^5.1.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "mysql2": "^3.10.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.0.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/express": "^4.17.17",
+    "@types/node": "^20.3.1",
+    "@types/passport-jwt": "^4.0.1",
+    "typescript": "^5.1.3"
+  }
+}
+EOF
+
+# 4. Clean railway.json
+cat << 'EOF' > railway.json
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  }
+}
+EOF
+
 echo ""
-echo "✅ MYSQL_URL fix applied!"
+echo "✅ Complete fix applied!"
 echo "======================================================"
-echo "📋 This fix will:"
-echo "1. 🎯 Use Railway's MYSQL_URL directly (bypasses DNS issues)"
-echo "2. 🔄 Fall back to individual variables if URL parsing fails"
-echo "3. 📊 Show detailed connection info in logs"
+echo "Fixed issues:"
+echo "✅ bcrypt import (was trying to use bcryptjs)"
+echo "✅ MySQL connection using MYSQL_URL"
+echo "✅ Proper fallback to individual variables"
+echo "✅ Clean package.json with correct dependencies"
 echo ""
-echo "🚀 DEPLOY NOW - this should work immediately!"
+echo "🚀 Deploy now - should build and connect successfully!"
 echo ""
-echo "Expected log output:"
+echo "Expected logs:"
 echo "✅ Using MYSQL_URL for connection"
-echo "🔗 Parsed MYSQL_URL connection:"
-echo "  Host: mysql.railway.internal"
-echo "  Port: 3306"
-echo "  Database: railway"
+echo "🔗 MySQL Connection: Host: mysql.railway.internal"
 echo ""
-echo "🎯 If this still fails, we'll try the public URL as backup"
+echo "Then test with: POST https://your-app.railway.app/seed"
