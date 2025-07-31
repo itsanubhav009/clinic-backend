@@ -1,67 +1,64 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './users/entities/user.entity';
+import { Doctor } from './doctors/entities/doctor.entity';
+import { Appointment } from './appointments/entities/appointment.entity';
+import { Queue } from './queue/entities/queue.entity';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DoctorsModule } from './doctors/doctors.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { QueueModule } from './queue/queue.module';
-import { User } from './users/entities/user.entity';
-import { Doctor } from './doctors/entities/doctor.entity';
-import { Appointment } from './appointments/entities/appointment.entity';
-import { Queue } from './queue/entities/queue.entity';
 import { SeedModule } from './seed/seed.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule], 
+      imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const mysqlUrl = configService.get<string>('MYSQL_URL') || 
-                        configService.get<string>('DATABASE_URL') ||
-                        configService.get<string>('MYSQL_PRIVATE_URL');
-        
-        if (mysqlUrl) {
-          console.log('✅ Using MySQL URL connection');
+      useFactory: (cfg: ConfigService) => {
+        /* -----------------------------------------------
+           1️⃣  full URL first  (works everywhere)
+        -------------------------------------------------*/
+        const url =
+          cfg.get<string>('MYSQL_PUBLIC_URL')    // outside Railway
+          ?? cfg.get<string>('MYSQL_URL')        // inside Railway
+          ?? cfg.get<string>('DATABASE_URL');
+
+        if (url) {
+          console.log('✅ Using MySQL URL → ' + url.split('@')[1]);
           return {
             type: 'mysql',
-            url: mysqlUrl,
+            url,
             entities: [User, Doctor, Appointment, Queue],
             synchronize: true,
-            ssl: false,
+            ssl: false,          // internal proxy is plaintext
           };
         }
-        
-        const config = {
+
+        /* -----------------------------------------------
+           2️⃣  fallback to discrete fields (internal only)
+        -------------------------------------------------*/
+        return {
           type: 'mysql' as const,
-          host: configService.get<string>('MYSQLHOST'),
-          port: parseInt(configService.get('MYSQLPORT') || '3306' ,10),
-          username: configService.get<string>('MYSQLUSER'),
-          password: configService.get<string>('MYSQLPASSWORD'),
-          database: configService.get<string>('MYSQLDATABASE'),
+          host: cfg.get<string>('MYSQLHOST'),
+          port: Number(cfg.get('MYSQLPORT') ?? 3306),
+          username: cfg.get<string>('MYSQLUSER'),
+          password: cfg.get<string>('MYSQLPASSWORD'),
+          database: cfg.get<string>('MYSQLDATABASE'),
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
           ssl: false,
-          connectTimeout: 60000,
+          connectTimeout: 60_000,
         };
-        
-        console.log('🔍 MySQL Configuration:');
-        console.log(`Host: ${config.host || 'NOT SET'}`);
-        console.log(`Port: ${config.port}`);
-        console.log(`Username: ${config.username || 'NOT SET'}`);
-        console.log(`Database: ${config.database || 'NOT SET'}`);
-        
-        if (!config.host || config.host === 'localhost' || config.host === '127.0.0.1') {
-          console.error('❌ MySQL host is not properly set. Make sure to reference MySQL variables from MySQL service.');
-          throw new Error('MySQL host configuration error');
-        }
-        
-        return config;
       },
     }),
-    AuthModule, UsersModule, DoctorsModule, AppointmentsModule, QueueModule, SeedModule,
+
+    AuthModule, UsersModule, DoctorsModule,
+    AppointmentsModule, QueueModule, SeedModule,
   ],
 })
 export class AppModule {}
