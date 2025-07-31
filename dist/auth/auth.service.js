@@ -13,7 +13,7 @@ exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const users_service_1 = require("../users/users.service");
 const jwt_1 = require("@nestjs/jwt");
-const bcrypt = require("bcryptjs");
+const bcryptjs = require("bcryptjs");
 let AuthService = class AuthService {
     constructor(usersService, jwtService) {
         this.usersService = usersService;
@@ -21,7 +21,7 @@ let AuthService = class AuthService {
     }
     async signIn(email, pass) {
         const user = await this.usersService.findOneByEmail(email);
-        if (!user || !(await bcrypt.compare(pass, user.password))) {
+        if (!user || !(await bcryptjs.compare(pass, user.password))) {
             throw new common_1.UnauthorizedException('Invalid credentials.');
         }
         const payload = { sub: user.id, email: user.email };
@@ -31,7 +31,7 @@ let AuthService = class AuthService {
         if (await this.usersService.findOneByEmail(createUserDto.email)) {
             throw new common_1.ConflictException('Email already registered');
         }
-        const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+        const hashedPassword = await bcryptjs.hash(createUserDto.password, 10);
         const user = await this.usersService.create({ ...createUserDto, password: hashedPassword });
         const { password, ...result } = user;
         return result;
@@ -40,6 +40,7 @@ let AuthService = class AuthService {
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [users_service_1.UsersService, jwt_1.JwtService])
+    __metadata("design:paramtypes", [users_service_1.UsersService,
+        jwt_1.JwtService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

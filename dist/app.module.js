@@ -26,15 +26,47 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            config_1.ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
+            config_1.ConfigModule.forRoot({ isGlobal: true }),
             typeorm_1.TypeOrmModule.forRootAsync({
-                imports: [config_1.ConfigModule], inject: [config_1.ConfigService],
-                useFactory: (configService) => ({
-                    type: 'mysql', host: configService.get('DB_HOST'),
-                    port: parseInt(configService.get('DB_PORT')), username: configService.get('DB_USERNAME'),
-                    password: configService.get('DB_PASSWORD'), database: configService.get('DB_DATABASE'),
-                    entities: [user_entity_1.User, doctor_entity_1.Doctor, appointment_entity_1.Appointment, queue_entity_1.Queue], synchronize: true,
-                }),
+                imports: [config_1.ConfigModule],
+                inject: [config_1.ConfigService],
+                useFactory: (configService) => {
+                    const mysqlUrl = configService.get('MYSQL_URL') ||
+                        configService.get('DATABASE_URL') ||
+                        configService.get('MYSQL_PRIVATE_URL');
+                    if (mysqlUrl) {
+                        console.log('✅ Using MySQL URL connection');
+                        return {
+                            type: 'mysql',
+                            url: mysqlUrl,
+                            entities: [user_entity_1.User, doctor_entity_1.Doctor, appointment_entity_1.Appointment, queue_entity_1.Queue],
+                            synchronize: true,
+                            ssl: false,
+                        };
+                    }
+                    const config = {
+                        type: 'mysql',
+                        host: configService.get('MYSQLHOST'),
+                        port: parseInt(configService.get('MYSQLPORT') || '3306', 10),
+                        username: configService.get('MYSQLUSER'),
+                        password: configService.get('MYSQLPASSWORD'),
+                        database: configService.get('MYSQLDATABASE'),
+                        entities: [user_entity_1.User, doctor_entity_1.Doctor, appointment_entity_1.Appointment, queue_entity_1.Queue],
+                        synchronize: true,
+                        ssl: false,
+                        connectTimeout: 60000,
+                    };
+                    console.log('🔍 MySQL Configuration:');
+                    console.log(`Host: ${config.host || 'NOT SET'}`);
+                    console.log(`Port: ${config.port}`);
+                    console.log(`Username: ${config.username || 'NOT SET'}`);
+                    console.log(`Database: ${config.database || 'NOT SET'}`);
+                    if (!config.host || config.host === 'localhost' || config.host === '127.0.0.1') {
+                        console.error('❌ MySQL host is not properly set. Make sure to reference MySQL variables from MySQL service.');
+                        throw new Error('MySQL host configuration error');
+                    }
+                    return config;
+                },
             }),
             auth_module_1.AuthModule, users_module_1.UsersModule, doctors_module_1.DoctorsModule, appointments_module_1.AppointmentsModule, queue_module_1.QueueModule, seed_module_1.SeedModule,
         ],

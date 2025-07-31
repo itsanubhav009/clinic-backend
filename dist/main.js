@@ -5,8 +5,11 @@ const app_module_1 = require("./app.module");
 const common_1 = require("@nestjs/common");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',')
+        : ['http://localhost:3001'];
     app.enableCors({
-        origin: true,
+        origin: allowedOrigins,
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
         credentials: true
     });
@@ -17,7 +20,7 @@ async function bootstrap() {
     }));
     const port = process.env.PORT || 3000;
     await app.listen(port, '0.0.0.0');
-    console.log(`🚀 Backend is running on port: ${port}`);
+    console.log(`🚀 Backend is running on: ${await app.getUrl()}`);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map
