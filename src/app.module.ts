@@ -37,6 +37,9 @@ import { SeedModule } from './seed/seed.module';
             entities: [User, Doctor, Appointment, Queue],
             synchronize: true,
             ssl: false,
+            connectTimeout: 60000,
+            acquireTimeout: 60000,
+            timeout: 60000,
           };
         }
 
@@ -60,6 +63,9 @@ import { SeedModule } from './seed/seed.module';
             entities: [User, Doctor, Appointment, Queue],
             synchronize: true,
             ssl: false,
+            connectTimeout: 60000,
+            acquireTimeout: 60000,
+            timeout: 60000,
           };
         }
 
@@ -75,6 +81,9 @@ import { SeedModule } from './seed/seed.module';
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
           ssl: false,
+          connectTimeout: 60000,
+          acquireTimeout: 60000,
+          timeout: 60000,
         };
       },
     }),

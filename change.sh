@@ -1,8 +1,8 @@
 #!/bin/bash
 
-echo "🔧 Fixing Railway MySQL connection..."
+echo "🔧 Applying complete Railway MySQL connection fix..."
 
-# 1. Update app.module.ts with proper Railway MySQL connection logic
+# 1. Update app.module.ts with Railway MySQL connection logic
 cat << 'EOF' > src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -43,6 +43,9 @@ import { SeedModule } from './seed/seed.module';
             entities: [User, Doctor, Appointment, Queue],
             synchronize: true,
             ssl: false,
+            connectTimeout: 60000,
+            acquireTimeout: 60000,
+            timeout: 60000,
           };
         }
 
@@ -66,6 +69,9 @@ import { SeedModule } from './seed/seed.module';
             entities: [User, Doctor, Appointment, Queue],
             synchronize: true,
             ssl: false,
+            connectTimeout: 60000,
+            acquireTimeout: 60000,
+            timeout: 60000,
           };
         }
 
@@ -81,6 +87,9 @@ import { SeedModule } from './seed/seed.module';
           entities: [User, Doctor, Appointment, Queue],
           synchronize: true,
           ssl: false,
+          connectTimeout: 60000,
+          acquireTimeout: 60000,
+          timeout: 60000,
         };
       },
     }),
@@ -90,7 +99,36 @@ import { SeedModule } from './seed/seed.module';
 export class AppModule {}
 EOF
 
-# 2. Update .env with Railway-compatible variables
+# 2. Update main.ts for Railway deployment
+cat << 'EOF' > src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  
+  // Enable CORS for Railway deployment
+  app.enableCors({ 
+    origin: true, // Allow all origins for Railway deployment
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', 
+    credentials: true 
+  });
+  
+  app.useGlobalPipes(new ValidationPipe({ 
+    whitelist: true, 
+    forbidNonWhitelisted: true, 
+    transform: true 
+  }));
+  
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`🚀 Backend is running on port: ${port}`);
+}
+bootstrap();
+EOF
+
+# 3. Update .env with Railway-compatible variables
 cat << 'EOF' > .env
 # Local Development (fallback)
 DB_HOST=127.0.0.1
@@ -111,66 +149,137 @@ JWT_SECRET=a-very-strong-and-secret-key-for-jwt
 PORT=3000
 EOF
 
-# 3. Update main.ts to use Railway's PORT variable
-cat << 'EOF' > src/main.ts
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+# 4. Create Railway-specific package.json build scripts
+echo "📦 Updating package.json for Railway..."
+# Check if package.json exists and update it
+if [ -f "package.json" ]; then
+    # Create a temporary file with updated scripts
+    cat package.json | sed 's/"start:prod": "node dist\/main"/"start:prod": "node dist\/main",\n    "railway:build": "npm install \&\& npm run build",\n    "railway:start": "npm run start:prod"/' > package.json.tmp
+    mv package.json.tmp package.json
+fi
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  
-  app.enableCors({ 
-    origin: true, // Allow all origins for Railway deployment
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', 
-    credentials: true 
-  });
-  
-  app.useGlobalPipes(new ValidationPipe({ 
-    whitelist: true, 
-    forbidNonWhitelisted: true, 
-    transform: true 
-  }));
-  
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`🚀 Backend is running on port: ${port}`);
+# 5. Create Railway deployment configuration
+cat << 'EOF' > railway.json
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "npm run start:prod",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
 }
-bootstrap();
+EOF
+
+# 6. Create Dockerfile for Railway (optional but recommended)
+cat << 'EOF' > Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Expose port
+EXPOSE 3000
+
+# Start the application
+CMD ["npm", "run", "start:prod"]
+EOF
+
+# 7. Create .dockerignore
+cat << 'EOF' > .dockerignore
+node_modules
+.git
+.gitignore
+README.md
+.env
+.nyc_output
+coverage
+.docker
+.dockerignore
+Dockerfile
+Dockerfile.dev
+.railway
+EOF
+
+# 8. Update .gitignore for Railway
+cat << 'EOF' > .gitignore
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+
+# Environment variables
+.env.local
+.env.production
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Railway
+.railway/
 EOF
 
 echo ""
-echo "✅ Railway MySQL connection fix applied!"
+echo "✅ Complete Railway MySQL fix applied!"
 echo "======================================================"
 echo "🔧 CHANGES MADE:"
-echo "✅ Updated app.module.ts with Railway MySQL detection"
-echo "✅ Added support for MYSQL_URL (Railway's preferred method)"
-echo "✅ Added fallback to individual MySQL variables"
+echo "✅ Updated app.module.ts with Railway MySQL auto-detection"
+echo "✅ Added connection timeouts for better Railway compatibility"
 echo "✅ Updated main.ts to use Railway's PORT variable"
-echo "✅ Updated CORS to allow Railway's domain"
+echo "✅ Updated CORS to allow Railway's domains"
+echo "✅ Created railway.json for deployment configuration"
+echo "✅ Created Dockerfile for containerized deployment"
+echo "✅ Updated .gitignore and .dockerignore"
 echo ""
-echo "🚨 IMPORTANT: Railway MySQL Setup"
+echo "🚨 RAILWAY SETUP STEPS:"
 echo "======================================================"
 echo "1. In your Railway project dashboard:"
 echo "   - Go to your project"
 echo "   - Click '+ New' → 'Database' → 'Add MySQL'"
 echo "   - Wait for it to deploy (this creates the database service)"
 echo ""
-echo "2. The MySQL service will automatically provide these variables:"
-echo "   ✅ MYSQL_URL (complete connection string)"
-echo "   ✅ MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE"
+echo "2. Connect your backend service to the database:"
+echo "   - Go to your backend service"
+echo "   - Click 'Variables' tab"
+echo "   - Click 'Reference' and select your MySQL service"
+echo "   - This will automatically add all MySQL variables"
 echo ""
 echo "3. Deploy your backend:"
 echo "   git add ."
-echo "   git commit -m 'fix: Railway MySQL connection with auto-detection'"
+echo "   git commit -m 'feat: Railway MySQL connection with auto-detection'"
 echo "   git push"
 echo ""
 echo "🔍 DEBUGGING TIPS:"
 echo "======================================================"
-echo "• Check Railway logs to see which connection method is used"
-echo "• The app will log all MySQL environment variables on startup"
-echo "• If connection fails, verify MySQL service is running in Railway"
+echo "• Check Railway deployment logs to see connection method used"
+echo "• Expected log: '✅ Using MYSQL_URL connection' or '✅ Using individual MySQL variables'"
+echo "• If still failing, check that MySQL service is fully deployed"
+echo "• Verify all environment variables are properly set in Railway dashboard"
 echo ""
-echo "Expected log output:"
-echo "✅ Using MYSQL_URL connection"
-echo "🚀 Backend is running on port: XXXX"
+echo "🌐 IMPORTANT NOTES:"
+echo "======================================================"
+echo "• Railway automatically provides MYSQL_URL and individual MySQL variables"
+echo "• The app will try MYSQL_URL first, then fall back to individual variables"
+echo "• Local development still uses .env file variables"
+echo "• CORS is now configured to work with Railway's domains"

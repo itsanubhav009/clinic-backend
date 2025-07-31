@@ -5,6 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
+  // Enable CORS for Railway deployment
   app.enableCors({ 
     origin: true, // Allow all origins for Railway deployment
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', 
