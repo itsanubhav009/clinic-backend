@@ -7,10 +7,7 @@ async function bootstrap() {
   
   // Allow all origins for now (adjust in production)
  app.enableCors({
-  origin: [
-    'http://localhost:3001',
-    'https://clinic-frontend-mocha.vercel.app'
-  ],
+  origin: true,
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   credentials: true,
 });
